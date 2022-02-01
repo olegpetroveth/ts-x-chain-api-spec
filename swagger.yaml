@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Thorswap Composable Router API
   description: Swap between any assets to any other asset, 
-  version: 0.0.1
+  version: 0.0.2
 
 servers:
   - url: http://api.thorswap-example.io/v1
@@ -23,16 +23,16 @@ paths:
 
   /providers:
     get:
-      summary: List of available liquidity sources on Thorswap
+      summary: List of available provider of liquidity sources
       responses:
         '200':
-          description: A JSON array of liquidity sources
+          description: A JSON array of providers
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/LiquiditySource'
+                  $ref: '#/components/schemas/Provider'
       
   /tokens:
     get:
@@ -182,24 +182,34 @@ paths:
 
 components:
   schemas:
-    LiquiditySource:
+    # REVIEW: renamed this as it was the only model not matching the route url
+    Provider:
       type: object
       properties:
         id:
           type: string
-        title:
+        name:
           type: string
+        type:
+          type: string
+        supportedChains:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chain'
         logoURI:
           type: string
       required:
         - id
-        - title
+        - name
+        - type
+        - supportedChains
 
     Token:
       type: object
       properties:
-        # Either 'ETH.XXX' symbols, or we use a separate 'network' property
-        # Consideration: If 'ETH.XXX' format, then how do we express arbitrary contract addresses?
+        # Solo: Either 'ETH.XXX' symbols, or we use a separate 'network' property
+        # Solo: Consideration: If 'ETH.XXX' format, then how do we express arbitrary contract addresses?
+        # REVIEW: Oleg -> I really prefer adding a chain/network property
         symbol:
           description: The symbol representing the token
           type: string
@@ -209,6 +219,8 @@ components:
         address:
           description: The smart contract address of the token
           type: string
+        chain:
+          $ref: '#/components/schemas/Chain'
         decimals:
           description: The number of decimals needed to represent the token
           type: integer
@@ -219,6 +231,7 @@ components:
         - symbol
         - name
         - address
+        - chain
     
     Quote:
       type: object
@@ -236,32 +249,39 @@ components:
           items:
             $ref: '#/components/schemas/Hop'
         estimatedFee:
-          description: Estimated total fees for the swap
+          description: Estimated total fees for the swap # QUESTION: whats the reference unit or format here
           type: number
         estimatedSlippage:
           type: number
+        # REVIEW: Human readable (2014-09-08T08:02:17.000Z) vs API ease of use (1360013296123).
+        # REVIEW: For this project I prefer API ease of use -> epoch ms timestamp like 1360013296123 or moment().format('x') for good precision.
         timestamp:
-          description: Time that the quote was calculated
-          type: string
-        validFor:
-          description: How long, from timestamp, until the quote should be considered stale (in seconds)
+          description: Timestamp that the quote was calculated (Unix Millisecond Timestamp)
           type: number
-        recommendedSlippageSetting:
+        # REVIEW: I think its more standard / easy to consume
+        expiration:
+          description: Expiration timestamp when the quote is considered stale or expired (Unix Millisecond Timestamp)
+          type: number
+        recommendedSlippage:
+          description: Recommended slippage for the whole swap (e.g. 0.03 for 3%)
           type: number
     
     Hop:
       type: object
       properties:
+        # REVIEW: I feel like it is best we reuse the Token component to inherit additional info
         sellToken:
-          type: string
+          $ref: '#/components/schemas/Token'
         buyToken:
-          type: string
+          $ref: '#/components/schemas/Token'
         sellAmount:
+          description: 'How much token this hop aims to sell (e.g. "1.2" would refer to 1.2 units of the sellToken property)' # REVIEW: rephrase if not clear
           type: number
         buyAmount:
+          description: 'How much token this hop aims to buy (e.g. "1.2" would refer to 1.2 units of the sellToken property)' # REVIEW: rephrase if not clear
           type: number
         provider:
-          $ref: '#/components/schemas/LiquiditySource'
+          $ref: '#/components/schemas/Provider'
         estimatedFee:
           description: Estimated fee for the hop
           type: number
@@ -270,10 +290,10 @@ components:
         transactionData:
           $ref: '#/components/schemas/TransactionData'
       required:
-        - fromToken
-        - toToken
-        - fromTokenAmount
-        - toTokenAmount
+        - sellToken
+        - buyToken
+        - sellAmount
+        - buyAmount
         - provider
     
     TransactionData:
@@ -281,6 +301,7 @@ components:
       type: object
       # Shape will differ depending on the network
       # e.g. For Ethereum:
+      # REVIEW: I think we would need the chain somewhere in there, maybe reuse the Token component but I'm not 100% clear so I didn't change anything
       properties:
         from:
           type: string
@@ -294,6 +315,13 @@ components:
           type: string
         gas:
           type: string
+      required:
+        - from
+        - to
+        - data
+        - value
+        - gasPrice
+        - gas
     
     SwapData:
       type: object
@@ -306,3 +334,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Hop'
+      required:
+        - fromToken
+        - toToken
+        - hops
