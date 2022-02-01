@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Thorswap Composable Router API
   description: Swap between any assets to any other asset, 
-  version: 0.0.2
+  version: 0.0.3
 
 servers:
   - url: http://api.thorswap-example.io/v1
@@ -182,6 +182,25 @@ paths:
 
 components:
   schemas:
+    Chain:
+      type: object
+      properties:
+        id:
+          description: Chain identifier # QUESTION: Is there a standard inclusive of both non-evm and evm blockchains?
+          type: string
+        name:
+          description: Complete chain name 
+          type: string
+        gasToken:
+          description: Token or coin used to pay for transaction fees on this blockchain
+          $ref: '#/components/schemas/Token'
+        evmId:
+          description: If EVM chain, ID of chain (https://chainlist.org/)
+          type: number
+      required:
+        - id
+        - name
+
     # REVIEW: renamed this as it was the only model not matching the route url
     Provider:
       type: object
